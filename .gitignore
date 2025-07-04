@@ -1,0 +1,12 @@
+# PowerShell outputs
+*.log
+*.tmp
+*.csv
+*.txt
+
+# VS Code settings
+.vscode/
+
+# Python (for future compatibility)
+__pycache__/
+*.pyc
