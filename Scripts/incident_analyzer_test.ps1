@@ -1,4 +1,4 @@
-# Security+ SY0-701 Incident Log Analyzer Script
+``# Security+ SY0-701 Incident Log Analyzer Script
 # Detects and analyzes failed logon attempts with Blue Team enhancements
 
 Write-Host "Starting Incident Analysis..." -ForegroundColor Green
@@ -50,11 +50,12 @@ $userStats = $failedLogons | ForEach-Object {
         $null
     }
 } | Where-Object { $_ } | Group-Object User | ForEach-Object {
-    $events = $failedLogons | Where-Object { $_.Properties.Count -gt 5 -and $_.Properties[5].Value -eq $_.Name }
-    Write-Host "Debug: Events for $($_.Name): $($events.Count)" -ForegroundColor Cyan
+    $groupName = $_.Name
+    $events = $failedLogons | Where-Object { $_.Properties.Count -gt 5 -and $_.Properties[5].Value -eq $groupName }
+    Write-Host "Debug: Events for $groupName: $($events.Count)" -ForegroundColor Cyan
     if ($events) {
         [PSCustomObject]@{
-            User = $_.Name
+            User = $groupName
             Count = $_.Count
             FirstTime = ($events | Sort-Object TimeCreated | Select -First 1).TimeCreated
             LastTime = ($events | Sort-Object TimeCreated -Descending | Select -First 1).TimeCreated
@@ -62,7 +63,7 @@ $userStats = $failedLogons | ForEach-Object {
             Status = ($events | Select -Unique -ExpandProperty Properties[7].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
         }
     } else {
-        Write-Host "Debug: No events for $($_.Name), skipping." -ForegroundColor Cyan
+        Write-Host "Debug: No events for $groupName, skipping." -ForegroundColor Cyan
         $null
     }
 } | Where-Object { $_ } | Sort-Object User
@@ -81,7 +82,7 @@ if ($failedCount -eq 0) {
         if ($_.Properties.Count -gt 5) { $_.Properties[5].Value } else { "Unknown" } 
     }) -ne $null -ne "Unknown" | Sort-Object -Unique
     if ($uniqueUsers.Count -ge 3 -and $failedCount -ge 5) {
-        Write-Host "Warning: Potential password spray attack detected across $uniqueUsers.Count users with $failedCount attempts." -ForegroundColor Red
+        Write-Host "Warning: Potential password spray attack detected across $($uniqueUsers.Count) users with $failedCount attempts." -ForegroundColor Red
     }
 }
 
