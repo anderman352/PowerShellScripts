@@ -47,13 +47,15 @@ $userStats = $failedLogons | ForEach-Object {
     }
 } | Group-Object User | ForEach-Object {
     $events = $failedLogons | Where-Object { if ($_.Properties.Count -gt 5) { $_.Properties[5].Value } -eq $_.Name }
-    [PSCustomObject]@{
-        User = $_.Name
-        Count = $_.Count
-        FirstTime = ($events | Sort-Object TimeCreated | Select -First 1).TimeCreated
-        LastTime = ($events | Sort-Object TimeCreated -Descending | Select -First 1).TimeCreated
-        SourceIp = ($events | Select -Unique -ExpandProperty Properties[18].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
-        Status = ($events | Select -Unique -ExpandProperty Properties[7].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
+    if ($events) {
+        [PSCustomObject]@{
+            User = $_.Name
+            Count = $_.Count
+            FirstTime = ($events | Sort-Object TimeCreated | Select -First 1).TimeCreated
+            LastTime = ($events | Sort-Object TimeCreated -Descending | Select -First 1).TimeCreated
+            SourceIp = ($events | Select -Unique -ExpandProperty Properties[18].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
+            Status = ($events | Select -Unique -ExpandProperty Properties[7].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
+        }
     }
 } | Sort-Object User
 
