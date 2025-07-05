@@ -28,9 +28,9 @@ foreach ($incident in $sortedLogons) {
     }
 
     Write-Host "Investigation: Review account $user, source $sourceIp, and logs for patterns." -ForegroundColor Red
-    Write-Host "Mitigation: Lock account $user; isolate $sourceIp; enforce strong passwords." -ForegroundColor Red
+    Write-Host "Mitigation: Lock account $user; isolate $sourceIp; enforce strong passwords." -ForegroundColor Blue
     if ($isDefaultAccount -and $failedCount -ge 3 -and $user -ne "Unknown") {
-        Write-Host "Isolation: Block $sourceIp via firewall (e.g., New-NetFirewallRule -Direction Inbound -Action Block -RemoteAddress $sourceIp)." -ForegroundColor Red
+        Write-Host "Isolation: Block $sourceIp via firewall (e.g., New-NetFirewallRule -Direction Inbound -Action Block -RemoteAddress $sourceIp)." -ForegroundColor Blue
     }
 }
 
