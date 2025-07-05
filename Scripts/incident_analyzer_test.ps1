@@ -35,7 +35,8 @@ foreach ($incident in $sortedLogons) {
     }
 }
 
-# Calculate detailed stats per user
+# Calculate detailed stats per user with debugging
+Write-Host "Debug: Calculating user stats..." -ForegroundColor Cyan
 $userStats = $failedLogons | ForEach-Object {
     if ($_.Properties.Count -gt 5) {
         [PSCustomObject]@{
@@ -44,9 +45,13 @@ $userStats = $failedLogons | ForEach-Object {
             SourceIp = if ($_.Properties.Count -gt 18) { $_.Properties[18].Value } else { "Unknown" }
             Status = if ($_.Properties.Count -gt 7) { $_.Properties[7].Value } else { "Unknown" }
         }
+    } else {
+        Write-Host "Debug: Skipping event with insufficient properties: $_" -ForegroundColor Cyan
+        $null
     }
-} | Group-Object User | ForEach-Object {
+} | Where-Object { $_ } | Group-Object User | ForEach-Object {
     $events = $failedLogons | Where-Object { $_.Properties.Count -gt 5 -and $_.Properties[5].Value -eq $_.Name }
+    Write-Host "Debug: Events for $($_.Name): $($events.Count)" -ForegroundColor Cyan
     if ($events) {
         [PSCustomObject]@{
             User = $_.Name
@@ -56,11 +61,18 @@ $userStats = $failedLogons | ForEach-Object {
             SourceIp = ($events | Select -Unique -ExpandProperty Properties[18].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
             Status = ($events | Select -Unique -ExpandProperty Properties[7].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
         }
+    } else {
+        Write-Host "Debug: No events for $($_.Name), skipping." -ForegroundColor Cyan
+        $null
     }
-} | Sort-Object User
+} | Where-Object { $_ } | Sort-Object User
 
 # Display table
-$userStats | Format-Table User, Count, FirstTime, LastTime, SourceIp, Status -AutoSize
+if ($userStats) {
+    $userStats | Format-Table User, Count, FirstTime, LastTime, SourceIp, Status -AutoSize
+} else {
+    Write-Host "No user stats available to display." -ForegroundColor Yellow
+}
 
 if ($failedCount -eq 0) {
     Write-Host "No failed logon incidents detected." -ForegroundColor Green
