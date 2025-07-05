@@ -1,4 +1,4 @@
-``# Security+ SY0-701 Incident Log Analyzer Script
+# Security+ SY0-701 Incident Log Analyzer Script
 # Detects and analyzes failed logon attempts with Blue Team enhancements
 
 Write-Host "Starting Incident Analysis..." -ForegroundColor Green
@@ -52,13 +52,15 @@ $userStats = $failedLogons | ForEach-Object {
 } | Where-Object { $_ } | Group-Object User | ForEach-Object {
     $groupName = $_.Name
     $events = $failedLogons | Where-Object { $_.Properties.Count -gt 5 -and $_.Properties[5].Value -eq $groupName }
-    Write-Host "Debug: Events for $groupName: $($events.Count)" -ForegroundColor Cyan
+    Write-Host "Debug: Events for $groupName : $($events.Count)" -ForegroundColor Cyan
     if ($events) {
+        $firstEvent = $events | Sort-Object TimeCreated | Select -First 1 -ErrorAction SilentlyContinue
+        $lastEvent = $events | Sort-Object TimeCreated -Descending | Select -First 1 -ErrorAction SilentlyContinue
         [PSCustomObject]@{
             User = $groupName
             Count = $_.Count
-            FirstTime = ($events | Sort-Object TimeCreated | Select -First 1).TimeCreated
-            LastTime = ($events | Sort-Object TimeCreated -Descending | Select -First 1).TimeCreated
+            FirstTime = if ($firstEvent) { $firstEvent.TimeCreated } else { $null }
+            LastTime = if ($lastEvent) { $lastEvent.TimeCreated } else { $null }
             SourceIp = ($events | Select -Unique -ExpandProperty Properties[18].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
             Status = ($events | Select -Unique -ExpandProperty Properties[7].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
         }
