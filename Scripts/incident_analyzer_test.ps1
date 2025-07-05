@@ -35,11 +35,30 @@ foreach ($incident in $sortedLogons) {
     }
 }
 
-# Count failures per account in a table
-$userCounts = $failedLogons | Group-Object { 
-    if ($_.Properties.Count -gt 5) { $_.Properties[5].Value } else { "Unknown" } 
-} -NoElement | Sort-Object Name
-$userCounts | Format-Table Name, Count -AutoSize
+# Calculate detailed stats per user
+$userStats = $failedLogons | ForEach-Object {
+    if ($_.Properties.Count -gt 5) {
+        [PSCustomObject]@{
+            User = $_.Properties[5].Value
+            Time = $_.TimeCreated
+            SourceIp = if ($_.Properties.Count -gt 18) { $_.Properties[18].Value } else { "Unknown" }
+            Status = if ($_.Properties.Count -gt 7) { $_.Properties[7].Value } else { "Unknown" }
+        }
+    }
+} | Group-Object User | ForEach-Object {
+    $events = $failedLogons | Where-Object { if ($_.Properties.Count -gt 5) { $_.Properties[5].Value } -eq $_.Name }
+    [PSCustomObject]@{
+        User = $_.Name
+        Count = $_.Count
+        FirstTime = ($events | Sort-Object TimeCreated | Select -First 1).TimeCreated
+        LastTime = ($events | Sort-Object TimeCreated -Descending | Select -First 1).TimeCreated
+        SourceIp = ($events | Select -Unique -ExpandProperty Properties[18].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
+        Status = ($events | Select -Unique -ExpandProperty Properties[7].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
+    }
+} | Sort-Object User
+
+# Display table
+$userStats | Format-Table User, Count, FirstTime, LastTime, SourceIp, Status -AutoSize
 
 if ($failedCount -eq 0) {
     Write-Host "No failed logon incidents detected." -ForegroundColor Green
@@ -51,25 +70,5 @@ if ($failedCount -eq 0) {
         Write-Host "Warning: Potential password spray attack detected across $uniqueUsers.Count users with $failedCount attempts." -ForegroundColor Red
     }
 }
-
-$userStats = $failedLogons | ForEach-Object {
-    [PSCustomObject]@{
-        User = if ($_.Properties.Count -gt 5) { $_.Properties[5].Value } else { "Unknown" }
-        FirstTime = $_.TimeCreated
-        LastTime = $_.TimeCreated
-        SourceIp = if ($_.Properties.Count -gt 18) { $_.Properties[18].Value } else { "Unknown" }
-        Status = if ($_.Properties.Count -gt 7) { $_.Properties[7].Value } else { "Unknown" }
-    }
-} | Group-Object User | ForEach-Object {
-    $events = $failedLogons | Where-Object { if ($_.Properties.Count -gt 5) { $_.Properties[5].Value } else { "Unknown" } -eq $_.Name }
-    [PSCustomObject]@{
-        User = $_.Name
-        Count = $_.Count
-        FirstTime = ($events | Sort-Object TimeCreated | Select -First 1).TimeCreated
-        LastTime = ($events | Sort-Object TimeCreated -Descending | Select -First 1).TimeCreated
-        SourceIp = ($events | Select -Unique -ExpandProperty Properties[18].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
-        Status = ($events | Select -Unique -ExpandProperty Properties[7].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
-    }
-} | Sort-Object User | Format-Table -AutoSize
 
 Write-Host "Incident Analysis Complete!" -ForegroundColor Green
