@@ -46,7 +46,7 @@ $userStats = $failedLogons | ForEach-Object {
         }
     }
 } | Group-Object User | ForEach-Object {
-    $events = $failedLogons | Where-Object { if ($_.Properties.Count -gt 5) { $_.Properties[5].Value } -eq $_.Name }
+    $events = $failedLogons | Where-Object { $_.Properties.Count -gt 5 -and $_.Properties[5].Value -eq $_.Name }
     if ($events) {
         [PSCustomObject]@{
             User = $_.Name
