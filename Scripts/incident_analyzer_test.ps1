@@ -54,15 +54,21 @@ $userStats = $failedLogons | ForEach-Object {
     $events = $failedLogons | Where-Object { $_.Properties.Count -gt 5 -and $_.Properties[5].Value -eq $groupName }
     Write-Host "Debug: Events for $groupName : $($events.Count)" -ForegroundColor Cyan
     if ($events) {
-        $firstEvent = $events | Where-Object { $_.TimeCreated } | Sort-Object TimeCreated | Select -First 1 -ErrorAction SilentlyContinue
-        $lastEvent = $events | Where-Object { $_.TimeCreated } | Sort-Object TimeCreated -Descending | Select -First 1 -ErrorAction SilentlyContinue
-        [PSCustomObject]@{
-            User = $groupName
-            Count = $_.Count
-            FirstTime = if ($firstEvent) { $firstEvent.TimeCreated } else { [DateTime]::MinValue }
-            LastTime = if ($lastEvent) { $lastEvent.TimeCreated } else { [DateTime]::MinValue }
-            SourceIp = ($events | Select -Unique -ExpandProperty Properties[18].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
-            Status = ($events | Select -Unique -ExpandProperty Properties[7].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
+        $validEvents = $events | Where-Object { $_.TimeCreated }
+        if ($validEvents) {
+            $firstEvent = $validEvents | Sort-Object TimeCreated | Select -First 1 -ErrorAction SilentlyContinue
+            $lastEvent = $validEvents | Sort-Object TimeCreated -Descending | Select -First 1 -ErrorAction SilentlyContinue
+            [PSCustomObject]@{
+                User = $groupName
+                Count = $_.Count
+                FirstTime = if ($firstEvent) { $firstEvent.TimeCreated } else { [DateTime]::MinValue }
+                LastTime = if ($lastEvent) { $lastEvent.TimeCreated } else { [DateTime]::MinValue }
+                SourceIp = ($validEvents | Select -Unique -ExpandProperty Properties[18].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
+                Status = ($validEvents | Select -Unique -ExpandProperty Properties[7].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
+            }
+        } else {
+            Write-Host "Debug: No valid events with TimeCreated for $groupName." -ForegroundColor Cyan
+            $null
         }
     } else {
         Write-Host "Debug: No events for $groupName, skipping." -ForegroundColor Cyan
