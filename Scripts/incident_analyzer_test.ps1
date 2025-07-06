@@ -52,27 +52,34 @@ $userStats = $failedLogons | ForEach-Object {
 } | Where-Object { $_ } | Group-Object User | ForEach-Object {
     $groupName = $_.Name
     $events = $failedLogons | Where-Object { $_.Properties.Count -gt 5 -and $_.Properties[5].Value -eq $groupName }
-    Write-Host "Debug: Events for $groupName : $($events.Count)" -ForegroundColor Cyan
+    Write-Host "Debug: Events for $groupName :" -ForegroundColor Cyan
+    Write-Host "Debug: Events count: $($events.Count)" -ForegroundColor Cyan
     if ($events) {
         $validEvents = $events | Where-Object { $_.TimeCreated -and $_.TimeCreated -is [DateTime] }
-        if ($validEvents) {
+        Write-Host "Debug: Valid events for $groupName : $($validEvents.Count)" -ForegroundColor Cyan
+        if ($validEvents.Count -gt 0) {
             try {
-                $firstEvent = $validEvents | Sort-Object TimeCreated | Select -First 1
-                $lastEvent = $validEvents | Sort-Object TimeCreated -Descending | Select -First 1
+                $firstEvent = $validEvents | Sort-Object TimeCreated | Select-Object -First 1
+                if (-not $firstEvent) { $firstEvent = $validEvents | Where-Object { $_.TimeCreated } | Select-Object -First 1 }
+                $lastEvent = $validEvents | Where-Object { $_.TimeCreated } | Select-Object -Last 1
+                if (-not $lastEvent) { $lastEvent = $validEvents | Select-Object -Last 1 }
+                if (-not $lastEvent -or -not $lastEvent.TimeCreated) {
+                    $lastEvent = $validEvents | Where-Object { $_.TimeCreated -and $_.TimeCreated -is [DateTime] } | Select-Object -Last 1
+                }
                 [PSCustomObject]@{
                     User = $groupName
                     Count = $_.Count
-                    FirstTime = $firstEvent.TimeCreated
-                    LastTime = $lastEvent.TimeCreated
-                    SourceIp = ($validEvents | Select -Unique -ExpandProperty Properties[18].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
-                    Status = ($validEvents | Select -Unique -ExpandProperty Properties[7].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
+                    FirstTime = if ($firstEvent -and $firstEvent.TimeCreated) { $firstEvent.TimeCreated } else { [DateTime]::MinValue }
+                    LastTime = if ($lastEvent -and $lastEvent.TimeCreated) { $lastEvent.TimeCreated } else { [DateTime]::MinValue }
+                    SourceIp = ($validEvents | Select-Object -Unique -ExpandProperty Properties[18].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
+                    Status = ($validEvents | Select-Object -Unique -ExpandProperty Properties[7].Value -ErrorAction SilentlyContinue | Where-Object { $_ })[0]
                 }
             } catch {
-                Write-Host "Debug: Error processing $groupName : $_" -ForegroundColor Red
+                Write-Host "Debug: Error processing ${groupName}: $_" -ForegroundColor Red
                 $null
             }
         } else {
-            Write-Host "Debug: No valid events with TimeCreated for $groupName." -ForegroundColor Cyan
+            Write-Host "Debug: No valid events with TimeCreated for ${groupName}." -ForegroundColor Cyan
             $null
         }
     } else {
@@ -93,7 +100,7 @@ if ($failedCount -eq 0) {
 } else {
     $uniqueUsers = ($failedLogons | ForEach-Object { 
         if ($_.Properties.Count -gt 5) { $_.Properties[5].Value } else { "Unknown" } 
-    }) -ne $null -ne "Unknown" | Sort-Object -Unique
+    }) | Where-Object { $null -ne $_ -and $_ -ne "Unknown" } | Sort-Object -Unique
     if ($uniqueUsers.Count -ge 3 -and $failedCount -ge 5) {
         Write-Host "Warning: Potential password spray attack detected across $($uniqueUsers.Count) users with $failedCount attempts." -ForegroundColor Red
     }
